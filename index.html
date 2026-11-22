@@ -395,9 +395,10 @@
        * @param {number} S - 放射方向数
        * @param {number} diagonalProb - 斜め接続の確率 (0.0~1.0)
        * @param {number} angleVariation - 角度のランダム変動幅 (0.0~1.0)
+       * @param {number} maxDegree - 各ノードの最大接続数 (デフォルト4)
        * @returns {Object} { nodes: Map, edges: Set }
        */
-      generate(R, S, diagonalProb = 0.3, angleVariation = 0.2) {
+      generate(R, S, diagonalProb = 0.3, angleVariation = 0.2, maxDegree = 4) {
         // ノードとエッジを保持するデータ構造
         const nodes = new Map(); // key: ノードID, value: ノードオブジェクト
         const edges = new Set();  // エッジをセットで管理（重複防止）
@@ -413,8 +414,8 @@
         // ステップ2: 基本接続を追加
         this._addBasicConnections(nodes, edges, R, S);
         
-        // ステップ3: ランダムな斜め接続を追加
-        this._addDiagonalConnections(nodes, edges, R, S, diagonalProb);
+        // ステップ3: ランダムな斜め接続を追加（maxDegree制限付き）
+        this._addDiagonalConnections(nodes, edges, R, S, diagonalProb, maxDegree);
         
         return { nodes, edges };
       }
@@ -494,25 +495,47 @@
       /**
        * ランダムな斜め接続を追加
        * 確率的に斜め方向のノードと接続する
+       * maxDegree制限を適用
        */
-      _addDiagonalConnections(nodes, edges, R, S, diagonalProb) {
+      _addDiagonalConnections(nodes, edges, R, S, diagonalProb, maxDegree) {
         for (let r = 0; r < R - 1; r++) {
           for (let s = 0; s < S; s++) {
             const currentId = `r${r}_s${s}`;
+            const currentNode = nodes.get(currentId);
+            
+            // 現在のノードが既にmaxDegree以上の接続を持っている場合はスキップ
+            if (currentNode.neighbors.length >= maxDegree) {
+              continue;
+            }
             
             // 確率判定
             if (this.random.next() < diagonalProb) {
               // 外側リングの「次の」放射方向と接続
               const nextS = (s + 1) % S;
               const diagonalNeighbor = `r${r + 1}_s${nextS}`;
-              this._addEdge(nodes, edges, currentId, diagonalNeighbor);
+              const neighborNode = nodes.get(diagonalNeighbor);
+              
+              // 両方のノードがmaxDegree未満の場合のみ接続
+              if (neighborNode && neighborNode.neighbors.length < maxDegree) {
+                this._addEdge(nodes, edges, currentId, diagonalNeighbor);
+              }
+            }
+            
+            // 現在のノードの接続数を再チェック
+            if (currentNode.neighbors.length >= maxDegree) {
+              continue;
             }
             
             // 逆方向の斜め接続も確率的に追加
             if (this.random.next() < diagonalProb) {
               const prevS = (s - 1 + S) % S;
               const diagonalNeighbor = `r${r + 1}_s${prevS}`;
-              this._addEdge(nodes, edges, currentId, diagonalNeighbor);
+              const neighborNode = nodes.get(diagonalNeighbor);
+              
+              // 両方のノードがmaxDegree未満の場合のみ接続
+              if (neighborNode && neighborNode.neighbors.length < maxDegree) {
+                this._addEdge(nodes, edges, currentId, diagonalNeighbor);
+              }
             }
           }
         }
@@ -1585,9 +1608,10 @@
         // 少し遅延させて描画をスムーズに
         setTimeout(() => {
           try {
-            // グラフ生成
+            // グラフ生成（maxDegreeは2～4のランダム値、デフォルト4）
+            const maxDegree = 2 + Math.floor(Math.random() * 3); // 2, 3, または 4
             const generator = new GraphGenerator(seed);
-            const graph = generator.generate(R, S, diagonalProb, 0.2);
+            const graph = generator.generate(R, S, diagonalProb, 0.2, maxDegree);
             
             // 検証
             const validation = validator.validate(graph, minNodes);
