@@ -1,0 +1,1609 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Spider Chase - 蜘蛛の巣型鬼ごっこゲーム</title>
+  <style>
+    /* ========================================
+       CSS: 基本スタイル
+       ======================================== */
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f5f5f5;
+      padding: 20px;
+    }
+    
+    #app {
+      max-width: 1400px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 300px 1fr;
+      gap: 20px;
+    }
+    
+    /* 設定エリア */
+    #settings {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    #settings h3 {
+      margin-top: 0;
+      margin-bottom: 15px;
+      color: #333;
+      border-bottom: 2px solid #4CAF50;
+      padding-bottom: 5px;
+    }
+    
+    #settings label {
+      display: block;
+      margin-bottom: 10px;
+      color: #555;
+    }
+    
+    #settings input[type="number"],
+    #settings input[type="range"] {
+      width: 100%;
+      padding: 5px;
+      margin-top: 3px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    
+    #settings button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 15px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    
+    #settings button:hover {
+      background: #45a049;
+    }
+    
+    #settings button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    /* ゲームエリア */
+    #gameWrapper {
+      background: white;
+      padding: 20px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    }
+    
+    #gameTitle {
+      text-align: center;
+      font-size: 1.5em;
+      font-weight: bold;
+      color: #333;
+      margin-bottom: 15px;
+      padding: 10px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border-radius: 8px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+    }
+    
+    #gameArea {
+      width: 100%;
+      height: 600px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      display: block;
+    }
+    
+    /* 情報エリア */
+    #info {
+      margin-top: 20px;
+      padding: 15px;
+      background: #f9f9f9;
+      border-radius: 4px;
+      border: 1px solid #e0e0e0;
+    }
+    
+    #info h3 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #333;
+    }
+    
+    #info p {
+      margin: 5px 0;
+      color: #666;
+    }
+    
+    .value {
+      font-weight: bold;
+      color: #4CAF50;
+    }
+    
+    .error {
+      color: #f44336;
+      font-weight: bold;
+    }
+    
+    .success {
+      color: #4CAF50;
+      font-weight: bold;
+    }
+    
+    /* ゲームコントロールボタン */
+    #gameControls {
+      margin-top: 15px;
+      display: flex;
+      gap: 10px;
+    }
+    
+    #gameControls button {
+      flex: 1;
+      padding: 10px;
+      background: #2196F3;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background 0.3s;
+    }
+    
+    #gameControls button:hover {
+      background: #1976D2;
+    }
+    
+    #gameControls button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+    }
+    
+    /* SVG要素のスタイル */
+    .node-normal {
+      fill: #333;
+      stroke: #fff;
+      stroke-width: 2;
+    }
+    
+    .node-user {
+      fill: #2196F3;
+      stroke: #fff;
+      stroke-width: 3;
+    }
+    
+    .node-npc {
+      fill: #f44336;
+      stroke: #fff;
+      stroke-width: 3;
+    }
+    
+    .node-goal {
+      fill: #FFC107;
+      stroke: #fff;
+      stroke-width: 3;
+    }
+    
+    .node-valid-move {
+      fill: #ffffff;
+      stroke: #4CAF50;
+      stroke-width: 4;
+      cursor: pointer;
+    }
+    
+    .node-valid-move:hover {
+      fill: #E8F5E9;
+      stroke: #66BB6A;
+    }
+    
+    .edge {
+      stroke: #999;
+      stroke-width: 2;
+    }
+    
+    /* レスポンシブデザイン */
+    @media (max-width: 768px) {
+      #app {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="app">
+    <!-- 設定エリア -->
+    <div id="settings">
+      <h3>マップ設定</h3>
+      
+      <label>
+        リング数 (R):
+        <input type="number" id="ringCount" value="4" min="2" max="10">
+      </label>
+      
+      <label>
+        放射方向数 (S):
+        <input type="number" id="spokeCount" value="8" min="4" max="16">
+      </label>
+      
+      <label>
+        斜め接続確率:
+        <input type="range" id="diagonalProb" value="0.3" min="0" max="1" step="0.1">
+        <span id="diagonalProbValue">0.3</span>
+      </label>
+      
+      <label>
+        最小ノード数:
+        <input type="number" id="minNodes" value="16" min="8" max="100">
+      </label>
+      
+      <label>
+        乱数シード (再現性用):
+        <input type="number" id="seed" value="12345" min="1">
+      </label>
+      
+      <h3>ゲーム設定</h3>
+      
+      <label>
+        プレイヤーの役割:
+        <select id="playerMode">
+          <option value="CHASE">逃走者（ゴールを目指す）</option>
+          <option value="ESCAPE">追跡者（NPCを捕まえる）</option>
+        </select>
+      </label>
+      
+      <label>
+        NPCのAIレベル:
+        <select id="aiLevel">
+          <option value="SIMPLE">シンプル（距離優先）</option>
+          <option value="MODERATE">中級（回避考慮）</option>
+        </select>
+      </label>
+      
+      <button id="generateBtn">新しいゲーム開始</button>
+      
+      <h3>ゲーム説明</h3>
+      <div style="font-size: 0.9em; color: #666; line-height: 1.6;">
+        <p><strong>🔵 青丸：あなた</strong></p>
+        <p><strong>🔴 赤丸：NPC（敵）</strong></p>
+        <p><strong>⭐ 黄色の星：ゴール</strong></p>
+        <p><strong>🟢 緑丸：移動可能な場所</strong></p>
+        
+        <p style="margin-top: 10px;"><strong>逃走者モード：</strong><br>
+        NPCから逃げてゴールを目指せ！<br>
+        NPCに捕まったら負け。</p>
+        
+        <p style="margin-top: 10px;"><strong>追跡者モード：</strong><br>
+        逃げるNPCを追いかけて捕まえろ！<br>
+        NPCがゴールに到達したら負け。</p>
+      </div>
+    </div>
+    
+    <!-- ゲームエリア -->
+    <div id="gameWrapper">
+      <div id="gameTitle">Spider Chase</div>
+      <svg id="gameArea" viewBox="-400 -400 800 800"></svg>
+      
+      <!-- ゲームコントロール -->
+      <div id="gameControls">
+        <button id="restartBtn" disabled>リスタート</button>
+      </div>
+      
+      <!-- 情報エリア -->
+      <div id="info">
+        <h3>マップ情報</h3>
+        <p>ノード数: <span class="value" id="nodeCount">-</span></p>
+        <p>エッジ数: <span class="value" id="edgeCount">-</span></p>
+        <p>平均次数: <span class="value" id="avgDegree">-</span></p>
+        <p>検証結果: <span class="value" id="validationResult">-</span></p>
+        <div id="errorMessages"></div>
+        
+        <h3>ゲーム状態</h3>
+        <p>ターン数: <span class="value" id="turnCount">0</span></p>
+        <p>ユーザー位置: <span class="value" id="userPos">-</span></p>
+        <p>NPC位置: <span class="value" id="npcPos">-</span></p>
+        <p>ゴール位置: <span class="value" id="goalPos">-</span></p>
+        <p>ユーザー⇔NPC距離: <span class="value" id="userNpcDist">-</span></p>
+        <p>ユーザー⇔ゴール距離: <span class="value" id="userGoalDist">-</span></p>
+        <p>状態: <span class="value" id="gameState">未開始</span></p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ========================================
+    // セクション1: 乱数生成器（シード対応）
+    // ========================================
+    
+    /**
+     * シード値を指定できる乱数生成器
+     * 再現性のあるランダムな値を生成するために使用する
+     */
+    class SeededRandom {
+      constructor(seed) {
+        this.seed = seed;
+      }
+      
+      /**
+       * 0以上1未満の乱数を生成
+       * LCG (Linear Congruential Generator) アルゴリズムを使用
+       */
+      next() {
+        this.seed = (this.seed * 9301 + 49297) % 233280;
+        return this.seed / 233280;
+      }
+      
+      /**
+       * min以上max未満の整数を生成
+       */
+      nextInt(min, max) {
+        return Math.floor(this.next() * (max - min)) + min;
+      }
+      
+      /**
+       * 配列からランダムに1つ選択
+       */
+      choice(array) {
+        return array[this.nextInt(0, array.length)];
+      }
+      
+      /**
+       * 配列をシャッフル（Fisher-Yates アルゴリズム）
+       */
+      shuffle(array) {
+        const result = [...array];
+        for (let i = result.length - 1; i > 0; i--) {
+          const j = this.nextInt(0, i + 1);
+          [result[i], result[j]] = [result[j], result[i]];
+        }
+        return result;
+      }
+    }
+    
+    // ========================================
+    // セクション2: GraphGenerator クラス
+    // ========================================
+    
+    /**
+     * 蜘蛛の巣型グラフを生成するクラス
+     * 極座標ベースでリング状のノードを配置し、通路で接続する
+     */
+    class GraphGenerator {
+      constructor(seed) {
+        this.random = new SeededRandom(seed);
+      }
+      
+      /**
+       * グラフを生成する
+       * @param {number} R - リング数
+       * @param {number} S - 放射方向数
+       * @param {number} diagonalProb - 斜め接続の確率 (0.0~1.0)
+       * @param {number} angleVariation - 角度のランダム変動幅 (0.0~1.0)
+       * @returns {Object} { nodes: Map, edges: Set }
+       */
+      generate(R, S, diagonalProb = 0.3, angleVariation = 0.2) {
+        // ノードとエッジを保持するデータ構造
+        const nodes = new Map(); // key: ノードID, value: ノードオブジェクト
+        const edges = new Set();  // エッジをセットで管理（重複防止）
+        
+        // ステップ1: すべてのノードを生成
+        for (let r = 0; r < R; r++) {
+          for (let s = 0; s < S; s++) {
+            const node = this._createNode(r, s, R, S, angleVariation);
+            nodes.set(node.id, node);
+          }
+        }
+        
+        // ステップ2: 基本接続を追加
+        this._addBasicConnections(nodes, edges, R, S);
+        
+        // ステップ3: ランダムな斜め接続を追加
+        this._addDiagonalConnections(nodes, edges, R, S, diagonalProb);
+        
+        return { nodes, edges };
+      }
+      
+      /**
+       * 個別のノードを生成
+       * 極座標からデカルト座標に変換して配置
+       */
+      _createNode(r, s, R, S, angleVariation) {
+        const id = `r${r}_s${s}`;
+        
+        // 基本角度を計算
+        const baseAngle = (2 * Math.PI * s) / S;
+        
+        // 角度にランダムな変動を加える
+        const angleOffset = (this.random.next() - 0.5) * angleVariation * (Math.PI / S);
+        const angle = baseAngle + angleOffset;
+        
+        // 半径を計算（内側リング=小さい半径、外側リング=大きい半径）
+        // 最内側リング(r=0)は半径50から開始
+        const radius = 50 + r * 80;
+        
+        // 極座標からデカルト座標に変換
+        const x = radius * Math.cos(angle);
+        const y = radius * Math.sin(angle);
+        
+        return {
+          id: id,
+          r: r,          // リング番号
+          s: s,          // 放射方向番号
+          x: x,          // X座標
+          y: y,          // Y座標
+          neighbors: []  // 隣接ノードのIDリスト
+        };
+      }
+      
+      /**
+       * 基本的な接続を追加
+       * - 同一リング内の隣接ノード同士を接続
+       * - 隣接リング間を放射方向に接続
+       */
+      _addBasicConnections(nodes, edges, R, S) {
+        for (let r = 0; r < R; r++) {
+          for (let s = 0; s < S; s++) {
+            const currentId = `r${r}_s${s}`;
+            
+            // 1. 同一リング内の接続（円周方向）
+            const nextS = (s + 1) % S; // 次の放射方向（周回する）
+            const neighborInRing = `r${r}_s${nextS}`;
+            this._addEdge(nodes, edges, currentId, neighborInRing);
+            
+            // 2. 外側リングへの接続（放射方向）
+            if (r < R - 1) {
+              const outerNeighbor = `r${r + 1}_s${s}`;
+              this._addEdge(nodes, edges, currentId, outerNeighbor);
+            }
+          }
+        }
+      }
+      
+      /**
+       * ランダムな斜め接続を追加
+       * 確率的に斜め方向のノードと接続する
+       */
+      _addDiagonalConnections(nodes, edges, R, S, diagonalProb) {
+        for (let r = 0; r < R - 1; r++) {
+          for (let s = 0; s < S; s++) {
+            const currentId = `r${r}_s${s}`;
+            
+            // 確率判定
+            if (this.random.next() < diagonalProb) {
+              // 外側リングの「次の」放射方向と接続
+              const nextS = (s + 1) % S;
+              const diagonalNeighbor = `r${r + 1}_s${nextS}`;
+              this._addEdge(nodes, edges, currentId, diagonalNeighbor);
+            }
+            
+            // 逆方向の斜め接続も確率的に追加
+            if (this.random.next() < diagonalProb) {
+              const prevS = (s - 1 + S) % S;
+              const diagonalNeighbor = `r${r + 1}_s${prevS}`;
+              this._addEdge(nodes, edges, currentId, diagonalNeighbor);
+            }
+          }
+        }
+      }
+      
+      /**
+       * エッジを追加する（双方向）
+       * 重複を防ぐため、両方のノードのneighborsリストとedgesセットを更新
+       */
+      _addEdge(nodes, edges, id1, id2) {
+        // ノードが存在しない場合は追加しない
+        if (!nodes.has(id1) || !nodes.has(id2)) {
+          return;
+        }
+        
+        // 自己ループは追加しない
+        if (id1 === id2) {
+          return;
+        }
+        
+        // エッジをソートして正規化（"a|b" と "b|a" を同一視）
+        const edgeKey = id1 < id2 ? `${id1}|${id2}` : `${id2}|${id1}`;
+        
+        // すでに存在するエッジは追加しない
+        if (edges.has(edgeKey)) {
+          return;
+        }
+        
+        // エッジを追加
+        edges.add(edgeKey);
+        
+        // 両方のノードのneighborsリストに追加
+        const node1 = nodes.get(id1);
+        const node2 = nodes.get(id2);
+        
+        if (!node1.neighbors.includes(id2)) {
+          node1.neighbors.push(id2);
+        }
+        
+        if (!node2.neighbors.includes(id1)) {
+          node2.neighbors.push(id1);
+        }
+      }
+    }
+    
+    // ========================================
+    // セクション3: GraphValidator クラス
+    // ========================================
+    
+    /**
+     * 生成されたグラフが要件を満たすか検証するクラス
+     */
+    class GraphValidator {
+      /**
+       * グラフを検証する
+       * @param {Object} graph - { nodes: Map, edges: Set }
+       * @param {number} minNodes - 最小ノード数
+       * @returns {Object} { valid: boolean, errors: string[] }
+       */
+      validate(graph, minNodes) {
+        const errors = [];
+        
+        // 検証1: ノード数チェック
+        if (graph.nodes.size < minNodes) {
+          errors.push(`ノード数不足: ${graph.nodes.size} < ${minNodes}`);
+        }
+        
+        // 検証2: 次数チェック（すべてのノードが次数2以上）
+        const degreeCheck = this._checkDegrees(graph);
+        if (!degreeCheck.valid) {
+          errors.push(`次数不足のノード: ${degreeCheck.details}`);
+        }
+        
+        // 検証3: 連結性チェック（すべてのノードが到達可能）
+        if (!this._checkConnectivity(graph)) {
+          errors.push("非連結なノードが存在");
+        }
+        
+        // 検証4: 自己ループチェック
+        if (this._hasSelfLoops(graph)) {
+          errors.push("自己ループが存在");
+        }
+        
+        // 検証5: 双方向性チェック
+        if (!this._checkBidirectional(graph)) {
+          errors.push("一方向のエッジが存在");
+        }
+        
+        return {
+          valid: errors.length === 0,
+          errors: errors
+        };
+      }
+      
+      /**
+       * すべてのノードの次数が2以上かチェック
+       */
+      _checkDegrees(graph) {
+        const lowDegreeNodes = [];
+        
+        for (const [id, node] of graph.nodes) {
+          if (node.neighbors.length < 2) {
+            lowDegreeNodes.push(`${id}(次数:${node.neighbors.length})`);
+          }
+        }
+        
+        return {
+          valid: lowDegreeNodes.length === 0,
+          details: lowDegreeNodes.join(", ")
+        };
+      }
+      
+      /**
+       * すべてのノードが連結しているかBFSでチェック
+       */
+      _checkConnectivity(graph) {
+        if (graph.nodes.size === 0) {
+          return true;
+        }
+        
+        // 開始ノード（任意の1つ）
+        const startId = graph.nodes.keys().next().value;
+        
+        // BFSで到達可能なノードを探索
+        const visited = new Set();
+        const queue = [startId];
+        visited.add(startId);
+        
+        while (queue.length > 0) {
+          const currentId = queue.shift();
+          const node = graph.nodes.get(currentId);
+          
+          for (const neighborId of node.neighbors) {
+            if (!visited.has(neighborId)) {
+              visited.add(neighborId);
+              queue.push(neighborId);
+            }
+          }
+        }
+        
+        // すべてのノードが訪問されたかチェック
+        return visited.size === graph.nodes.size;
+      }
+      
+      /**
+       * 自己ループが存在するかチェック
+       */
+      _hasSelfLoops(graph) {
+        for (const [id, node] of graph.nodes) {
+          if (node.neighbors.includes(id)) {
+            return true;
+          }
+        }
+        return false;
+      }
+      
+      /**
+       * すべてのエッジが双方向かチェック
+       */
+      _checkBidirectional(graph) {
+        for (const [id1, node1] of graph.nodes) {
+          for (const id2 of node1.neighbors) {
+            const node2 = graph.nodes.get(id2);
+            if (!node2 || !node2.neighbors.includes(id1)) {
+              return false;
+            }
+          }
+        }
+        return true;
+      }
+      
+      /**
+       * グラフの統計情報を計算
+       */
+      getStats(graph) {
+        const degrees = [];
+        
+        for (const node of graph.nodes.values()) {
+          degrees.push(node.neighbors.length);
+        }
+        
+        const sum = degrees.reduce((a, b) => a + b, 0);
+        const avg = degrees.length > 0 ? (sum / degrees.length).toFixed(2) : 0;
+        const min = degrees.length > 0 ? Math.min(...degrees) : 0;
+        const max = degrees.length > 0 ? Math.max(...degrees) : 0;
+        
+        return {
+          nodeCount: graph.nodes.size,
+          edgeCount: graph.edges.size,
+          avgDegree: avg,
+          minDegree: min,
+          maxDegree: max
+        };
+      }
+    }
+    
+    // ========================================
+    // セクション4: ユーティリティ関数
+    // ========================================
+    
+    /**
+     * BFSで2つのノード間の最短距離を計算
+     * @param {Object} graph - グラフオブジェクト
+     * @param {string} startId - 開始ノードID
+     * @param {string} endId - 終了ノードID
+     * @returns {number} 最短距離（到達不可能な場合はInfinity）
+     */
+    function bfsDistance(graph, startId, endId) {
+      if (startId === endId) return 0;
+      if (!graph.nodes.has(startId) || !graph.nodes.has(endId)) return Infinity;
+      
+      // BFS（幅優先探索）で最短距離を計算
+      const visited = new Set();
+      const queue = [{ id: startId, dist: 0 }];
+      visited.add(startId);
+      
+      while (queue.length > 0) {
+        const current = queue.shift();
+        
+        // 隣接ノードを探索
+        const node = graph.nodes.get(current.id);
+        for (const neighborId of node.neighbors) {
+          if (neighborId === endId) {
+            // 目標ノードに到達
+            return current.dist + 1;
+          }
+          
+          if (!visited.has(neighborId)) {
+            visited.add(neighborId);
+            queue.push({ id: neighborId, dist: current.dist + 1 });
+          }
+        }
+      }
+      
+      // 到達不可能
+      return Infinity;
+    }
+    
+    // ========================================
+    // セクション5: PlacementGenerator クラス
+    // ========================================
+    
+    /**
+     * USER、NPC、GOALをグラフ上に配置するクラス
+     */
+    class PlacementGenerator {
+      constructor(seed) {
+        this.random = new SeededRandom(seed);
+      }
+      
+      /**
+       * ランダムに配置を生成
+       * @param {Object} graph - グラフオブジェクト
+       * @param {string} mode - ゲームモード（"CHASE" or "ESCAPE"）
+       * @returns {Object} { user, npc, goal }
+       */
+      generatePlacement(graph, mode) {
+        const nodeIds = Array.from(graph.nodes.keys());
+        let attempts = 0;
+        const maxAttempts = 1000;
+        
+        while (attempts < maxAttempts) {
+          // ランダムに3つのノードを選択
+          const shuffled = this.random.shuffle(nodeIds);
+          const user = shuffled[0];
+          const npc = shuffled[1];
+          const goal = shuffled[2];
+          
+          // 距離条件をチェック
+          const userNpcDist = bfsDistance(graph, user, npc);
+          const userGoalDist = bfsDistance(graph, user, goal);
+          const npcGoalDist = bfsDistance(graph, npc, goal);
+          
+          // 基本条件：ユーザーとNPCは2以上、ユーザーとゴールは2以上
+          if (userNpcDist < 2 || userGoalDist < 2) {
+            attempts++;
+            continue;
+          }
+          
+          // モード別の追加条件
+          if (mode === "ESCAPE") {
+            // ユーザーが追跡者の場合：NPCとゴールの距離も2以上必要
+            // NPCがゴールの隣だと1ターンで負けてしまう
+            if (npcGoalDist < 3) {
+              attempts++;
+              continue;
+            }
+          }
+          
+          // すべての条件を満たした
+          return { user, npc, goal };
+        }
+        
+        // 条件を満たす配置が見つからなかった場合は緩和
+        console.warn('厳しい条件を満たせないため、緩和した配置を使用します');
+        const shuffled = this.random.shuffle(nodeIds);
+        return {
+          user: shuffled[0],
+          npc: shuffled[1],
+          goal: shuffled[2]
+        };
+      }
+    }
+    
+    // ========================================
+    // セクション6: NPCController クラス
+    // ========================================
+    
+    /**
+     * NPCの行動を決定するクラス
+     */
+    class NPCController {
+      constructor(aiLevel) {
+        this.aiLevel = aiLevel; // "SIMPLE" or "MODERATE"
+        this.lastDecision = null; // デバッグ用
+      }
+      
+      /**
+       * NPCの次の移動先を決定
+       * @param {Object} graph - グラフオブジェクト
+       * @param {string} npcPos - NPCの現在位置
+       * @param {string} userPos - ユーザーの現在位置
+       * @param {string} goalPos - ゴールの位置
+       * @param {string} mode - "CHASE" (NPCが追跡者) or "ESCAPE" (NPCが逃走者)
+       * @returns {string} 移動先ノードID
+       */
+      chooseMove(graph, npcPos, userPos, goalPos, mode) {
+        if (mode === "CHASE") {
+          // NPCが追跡者：ユーザーを追いかける
+          return this._chaseMove(graph, npcPos, userPos);
+        } else {
+          // NPCが逃走者：ゴールを目指して逃げる
+          return this._escapeMove(graph, npcPos, userPos, goalPos);
+        }
+      }
+      
+      /**
+       * 追跡AI：ユーザーとの距離を短縮する移動を選択
+       */
+      _chaseMove(graph, npcPos, userPos) {
+        const neighbors = graph.nodes.get(npcPos).neighbors;
+        
+        // 各隣接ノードからユーザーまでの距離を計算
+        let bestMove = null;
+        let bestDistance = Infinity;
+        const candidates = []; // 同じ距離の候補を保持
+        
+        for (const neighborId of neighbors) {
+          const distance = bfsDistance(graph, neighborId, userPos);
+          
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            bestMove = neighborId;
+            candidates.length = 0; // リセット
+            candidates.push(neighborId);
+          } else if (distance === bestDistance) {
+            candidates.push(neighborId);
+          }
+        }
+        
+        // 同じ評価値の候補が複数ある場合はランダムに選択
+        if (candidates.length > 1) {
+          bestMove = candidates[Math.floor(Math.random() * candidates.length)];
+        }
+        
+        this.lastDecision = {
+          from: npcPos,
+          to: bestMove,
+          mode: "CHASE",
+          distance: bestDistance,
+          reason: `ユーザーに接近（距離: ${bestDistance}）`
+        };
+        
+        return bestMove;
+      }
+      
+      /**
+       * 逃走AI：ゴールに近づきつつユーザーから遠ざかる移動を選択
+       */
+      _escapeMove(graph, npcPos, userPos, goalPos) {
+        const neighbors = graph.nodes.get(npcPos).neighbors;
+        
+        let bestMove = null;
+        let bestScore = -Infinity;
+        const candidates = []; // 同じスコアの候補を保持
+        
+        for (const neighborId of neighbors) {
+          // ゴールまでの距離（小さいほど良い）
+          const distToGoal = bfsDistance(graph, neighborId, goalPos);
+          
+          // ユーザーまでの距離（大きいほど良い）
+          const distToUser = bfsDistance(graph, neighborId, userPos);
+          
+          // AIレベルに応じたスコア計算
+          let score;
+          if (this.aiLevel === "SIMPLE") {
+            // シンプル：ゴールへの距離のみ考慮
+            score = -distToGoal;
+          } else {
+            // 中級：ゴールへの距離とユーザーからの距離の両方を考慮
+            // ユーザーが近い場合は逃げることを優先
+            if (distToUser <= 2) {
+              // ユーザーが近ければ逃げることを最優先
+              score = distToUser * 3 - distToGoal;
+            } else {
+              // ユーザーが遠ければゴールを優先
+              score = distToUser - distToGoal * 2;
+            }
+          }
+          
+          if (score > bestScore) {
+            bestScore = score;
+            bestMove = neighborId;
+            candidates.length = 0;
+            candidates.push(neighborId);
+          } else if (score === bestScore) {
+            candidates.push(neighborId);
+          }
+        }
+        
+        // 同じ評価値の候補が複数ある場合はランダムに選択
+        if (candidates.length > 1) {
+          bestMove = candidates[Math.floor(Math.random() * candidates.length)];
+        }
+        
+        const distToGoal = bfsDistance(graph, bestMove, goalPos);
+        const distToUser = bfsDistance(graph, bestMove, userPos);
+        
+        this.lastDecision = {
+          from: npcPos,
+          to: bestMove,
+          mode: "ESCAPE",
+          distToGoal: distToGoal,
+          distToUser: distToUser,
+          reason: `ゴールに接近（距離: ${distToGoal}）、ユーザーから離脱（距離: ${distToUser}）`
+        };
+        
+        return bestMove;
+      }
+      
+      /**
+       * 最後の判断情報を取得（デバッグ用）
+       */
+      getLastDecision() {
+        return this.lastDecision;
+      }
+    }
+    
+    // ========================================
+    // セクション7: GameController クラス
+    // ========================================
+    
+    /**
+     * ゲームの状態管理とターン進行を制御するクラス
+     */
+    class GameController {
+      constructor(graph, placement, mode, npcController) {
+        this.graph = graph;
+        this.userPos = placement.user;
+        this.npcPos = placement.npc;
+        this.goalPos = placement.goal;
+        this.mode = mode; // "CHASE" (ユーザーが逃走者) or "ESCAPE" (ユーザーが追跡者)
+        this.turn = 0;
+        this.state = "PLAYING"; // "PLAYING", "USER_WIN", "USER_LOSE"
+        this.history = [];
+        this.initialPlacement = { ...placement }; // リスタート用
+        this.npcController = npcController; // NPCのAI
+      }
+      
+      /**
+       * ユーザーが移動可能なノードのリストを取得
+       */
+      getValidMoves() {
+        if (this.state !== "PLAYING") {
+          return [];
+        }
+        
+        const currentNode = this.graph.nodes.get(this.userPos);
+        return currentNode.neighbors;
+      }
+      
+      /**
+       * 指定されたノードへ移動可能かチェック
+       */
+      canMove(targetId) {
+        return this.getValidMoves().includes(targetId);
+      }
+      
+      /**
+       * ユーザーを移動させる
+       * @param {string} targetId - 移動先ノードID
+       * @returns {Object} { success: boolean, message: string }
+       */
+      moveUser(targetId) {
+        // 移動可能かチェック
+        if (!this.canMove(targetId)) {
+          return { success: false, message: "そこには移動できません" };
+        }
+        
+        // 履歴に記録
+        const prevPos = this.userPos;
+        
+        // ユーザーを移動
+        this.userPos = targetId;
+        this.history.push({
+          turn: this.turn,
+          type: "USER",
+          from: prevPos,
+          to: targetId
+        });
+        
+        // 勝利条件チェック（ユーザー移動後）
+        if (this._checkUserVictory()) {
+          this.state = "USER_WIN";
+          // 開発指示書：「モードBでは、ユーザーの移動によって捕獲が成立した場合、NPCは移動できない」
+          // ユーザーが勝利した場合、NPCは移動しない
+          return {
+            success: true,
+            message: this.mode === "CHASE" ? "🎉 ゴールに到達！あなたの勝ち！" : "🎉 NPCを捕獲！あなたの勝ち！"
+          };
+        }
+        
+        // 敗北条件チェック（ユーザー移動後、捕獲の場合）
+        if (this._checkUserDefeat()) {
+          this.state = "USER_LOSE";
+          return {
+            success: true,
+            message: this.mode === "CHASE" ? "😢 NPCに捕まった！あなたの負け..." : "不可能"
+          };
+        }
+        
+        // NPCを移動（ゲームがまだ続いている場合のみ）
+        // ユーザーが勝利していない場合のみNPCが移動する
+        if (this.state === "PLAYING") {
+          this.moveNPC();
+          
+          // NPC移動後の状態をチェック
+          if (this.state === "USER_WIN") {
+            // NPC移動後にユーザーが勝利（ESCAPEモードで同じ位置に到達）
+            return {
+              success: true,
+              message: "🎉 NPCを捕獲！あなたの勝ち！"
+            };
+          } else if (this.state === "USER_LOSE") {
+            // NPC移動後に敗北した場合
+            return {
+              success: true,
+              message: this.mode === "CHASE" ? "😢 NPCに捕まった！あなたの負け..." : "😢 NPCがゴールに到達！あなたの負け..."
+            };
+          }
+        }
+        
+        // まだゲームが続いている場合はターンを進める
+        this.turn++;
+        
+        return {
+          success: true,
+          message: "移動しました"
+        };
+      }
+      
+      /**
+       * NPCを移動させる
+       * 重要：this.userPosはmoveUser()で既に更新済みなので、
+       * NPCはユーザーの移動後の位置を見て移動先を決定する
+       */
+      moveNPC() {
+        if (this.state !== "PLAYING") return;
+        
+        // NPCの移動先を決定
+        // this.userPosはユーザー移動後の位置（重要）
+        const npcMode = this.mode === "CHASE" ? "CHASE" : "ESCAPE";
+        const nextPos = this.npcController.chooseMove(
+          this.graph,
+          this.npcPos,
+          this.userPos,  // ← ユーザーの移動後の位置
+          this.goalPos,
+          npcMode
+        );
+        
+        if (nextPos) {
+          const prevPos = this.npcPos;
+          this.npcPos = nextPos;
+          this.history.push({
+            turn: this.turn,
+            type: "NPC",
+            from: prevPos,
+            to: nextPos
+          });
+          
+          // 判定順序が重要：
+          // 1. まず捕獲判定（ESCAPEモードで両者が同じ位置）
+          // 2. 次に敗北判定（NPCがゴール到達）
+          
+          // ESCAPEモードで、NPCがユーザーと同じ位置に来たら勝利
+          if (this.mode === "ESCAPE" && this.userPos === this.npcPos) {
+            this.state = "USER_WIN";
+            return;
+          }
+          
+          // 敗北判定（NPC移動後）
+          if (this._checkUserDefeat()) {
+            this.state = "USER_LOSE";
+          }
+        }
+      }
+      
+      /**
+       * ユーザーの勝利条件をチェック
+       */
+      _checkUserVictory() {
+        if (this.mode === "CHASE") {
+          // ユーザーが逃走者：ゴールに到達
+          return this.userPos === this.goalPos;
+        } else {
+          // ユーザーが追跡者：NPCを捕獲
+          return this.userPos === this.npcPos;
+        }
+      }
+      
+      /**
+       * ユーザーの敗北条件をチェック
+       */
+      _checkUserDefeat() {
+        if (this.mode === "CHASE") {
+          // ユーザーが逃走者：NPCに捕獲される
+          return this.userPos === this.npcPos;
+        } else {
+          // ユーザーが追跡者：NPCがゴールに到達
+          // （この段階ではまだNPCは動かないので常にfalse）
+          return this.npcPos === this.goalPos;
+        }
+      }
+      
+      /**
+       * ゲームをリスタート（同じマップ、同じ配置から）
+       */
+      restart() {
+        this.userPos = this.initialPlacement.user;
+        this.npcPos = this.initialPlacement.npc;
+        this.goalPos = this.initialPlacement.goal;
+        this.turn = 0;
+        this.state = "PLAYING";
+        this.history = [];
+      }
+      
+      /**
+       * 現在のゲーム情報を取得
+       */
+      getGameInfo() {
+        return {
+          turn: this.turn,
+          userPos: this.userPos,
+          npcPos: this.npcPos,
+          goalPos: this.goalPos,
+          userNpcDist: bfsDistance(this.graph, this.userPos, this.npcPos),
+          userGoalDist: bfsDistance(this.graph, this.userPos, this.goalPos),
+          state: this.state,
+          mode: this.mode
+        };
+      }
+    }
+    
+    // ========================================
+    // セクション7: Renderer クラス
+    // ========================================
+    
+    /**
+     * グラフをSVGで描画するクラス
+     */
+    class Renderer {
+      constructor(svgElement) {
+        this.svg = svgElement;
+      }
+      
+      /**
+       * グラフ全体を描画（マップのみ）
+       */
+      renderGraph(graph) {
+        // SVGをクリア
+        this.svg.innerHTML = '';
+        
+        // エッジを先に描画（ノードの下に表示されるように）
+        this._renderEdges(graph);
+        
+        // ノードを描画
+        this._renderNodes(graph);
+      }
+      
+      /**
+       * ゲーム状態全体を描画（マップ + キャラクター + 移動可能ノード）
+       * 描画順序：マップ < 移動可能ノード < ゴール < 逃走者 < 追跡者
+       * @param {GameController} gameController - ゲームコントローラー
+       * @param {Function} onNodeClick - ノードクリック時のコールバック
+       */
+      renderGameState(gameController, onNodeClick) {
+        // 1. まずグラフを描画（最下層）
+        this.renderGraph(gameController.graph);
+        
+        // 2. 移動可能なノードを強調表示
+        const validMoves = gameController.getValidMoves();
+        this._highlightValidMoves(gameController.graph, validMoves, onNodeClick);
+        
+        // 3. ゴールを描画
+        const goalIsValid = validMoves.includes(gameController.goalPos);
+        this._renderGoal(gameController.graph, gameController.goalPos, goalIsValid, onNodeClick);
+        
+        // 4-5. モードに応じて逃走者→追跡者の順で描画
+        if (gameController.mode === "CHASE") {
+          // CHASEモード：ユーザーが逃走者、NPCが追跡者
+          this._renderUser(gameController.graph, gameController.userPos);  // 逃走者
+          this._renderNPC(gameController.graph, gameController.npcPos, false, null);    // 追跡者（最上層）
+        } else {
+          // ESCAPEモード：NPCが逃走者、ユーザーが追跡者
+          // NPCが移動可能な場合はクリック可能にする
+          const npcIsValid = validMoves.includes(gameController.npcPos);
+          this._renderNPC(gameController.graph, gameController.npcPos, npcIsValid, onNodeClick);    // 逃走者
+          this._renderUser(gameController.graph, gameController.userPos);  // 追跡者（最上層）
+        }
+      }
+      
+      /**
+       * すべてのエッジ（通路）を描画
+       */
+      _renderEdges(graph) {
+        for (const edgeKey of graph.edges) {
+          const [id1, id2] = edgeKey.split('|');
+          const node1 = graph.nodes.get(id1);
+          const node2 = graph.nodes.get(id2);
+          
+          if (!node1 || !node2) continue;
+          
+          // line要素を作成
+          const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          line.setAttribute('x1', node1.x);
+          line.setAttribute('y1', node1.y);
+          line.setAttribute('x2', node2.x);
+          line.setAttribute('y2', node2.y);
+          line.setAttribute('stroke', '#999');
+          line.setAttribute('stroke-width', '2');
+          
+          this.svg.appendChild(line);
+        }
+      }
+      
+      /**
+       * すべてのノードを描画
+       */
+      _renderNodes(graph) {
+        for (const node of graph.nodes.values()) {
+          // circle要素を作成
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('cx', node.x);
+          circle.setAttribute('cy', node.y);
+          circle.setAttribute('r', '8');
+          circle.setAttribute('fill', '#333');
+          circle.setAttribute('stroke', '#fff');
+          circle.setAttribute('stroke-width', '2');
+          
+          // データ属性を追加（後の段階でクリック判定に使用）
+          circle.setAttribute('data-node-id', node.id);
+          
+          this.svg.appendChild(circle);
+        }
+      }
+      
+      /**
+       * 移動可能なノードを強調表示
+       * ユーザーより大きく表示して重なっても見えるようにする
+       */
+      _highlightValidMoves(graph, validMoveIds, onNodeClick) {
+        for (const nodeId of validMoveIds) {
+          const node = graph.nodes.get(nodeId);
+          if (!node) continue;
+          
+          // 移動可能なノードを緑色で描画（ユーザーより大きく）
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('cx', node.x);
+          circle.setAttribute('cy', node.y);
+          circle.setAttribute('r', '16');  // NPCより大きく
+          circle.setAttribute('class', 'node-valid-move');
+          circle.setAttribute('data-node-id', nodeId);
+          
+          // クリックイベントを追加
+          circle.style.cursor = 'pointer';
+          circle.addEventListener('click', () => {
+            if (onNodeClick) {
+              onNodeClick(nodeId);
+            }
+          });
+          
+          this.svg.appendChild(circle);
+        }
+      }
+      
+      /**
+       * ゴールを星マークで描画
+       * @param {boolean} isClickable - クリック可能かどうか
+       * @param {Function} onNodeClick - クリック時のコールバック
+       */
+      _renderGoal(graph, goalId, isClickable = false, onNodeClick = null) {
+        const node = graph.nodes.get(goalId);
+        if (!node) return;
+        
+        // 星の5つの頂点を計算
+        const outerRadius = 18;
+        const innerRadius = 7;
+        const points = [];
+        
+        for (let i = 0; i < 10; i++) {
+          const angle = (Math.PI / 5) * i - Math.PI / 2;
+          const radius = i % 2 === 0 ? outerRadius : innerRadius;
+          const x = node.x + radius * Math.cos(angle);
+          const y = node.y + radius * Math.sin(angle);
+          points.push(`${x},${y}`);
+        }
+        
+        // 星形のポリゴンを作成
+        const star = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        star.setAttribute('points', points.join(' '));
+        star.setAttribute('fill', '#FFC107');
+        star.setAttribute('stroke', '#FF9800');
+        star.setAttribute('stroke-width', '2');
+        
+        // クリック可能な場合はイベントを追加
+        if (isClickable && onNodeClick) {
+          star.style.cursor = 'pointer';
+          star.setAttribute('data-node-id', goalId);
+          star.addEventListener('click', () => {
+            onNodeClick(goalId);
+          });
+          // ホバー時に光らせる
+          star.addEventListener('mouseenter', () => {
+            star.setAttribute('fill', '#FFD54F');
+          });
+          star.addEventListener('mouseleave', () => {
+            star.setAttribute('fill', '#FFC107');
+          });
+        }
+        
+        this.svg.appendChild(star);
+      }
+      
+      /**
+       * NPCを描画
+       * @param {boolean} isClickable - クリック可能かどうか（ESCAPEモードで移動可能な場合）
+       * @param {Function} onNodeClick - クリック時のコールバック
+       */
+      _renderNPC(graph, npcId, isClickable = false, onNodeClick = null) {
+        const node = graph.nodes.get(npcId);
+        if (!node) return;
+        
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', node.x);
+        circle.setAttribute('cy', node.y);
+        circle.setAttribute('r', '15');
+        circle.setAttribute('class', 'node-npc');
+        
+        // クリック可能な場合はイベントを追加
+        if (isClickable && onNodeClick) {
+          circle.style.cursor = 'pointer';
+          circle.setAttribute('data-node-id', npcId);
+          circle.addEventListener('click', () => {
+            onNodeClick(npcId);
+          });
+          // ホバー時に強調
+          circle.addEventListener('mouseenter', () => {
+            circle.setAttribute('stroke-width', '5');
+          });
+          circle.addEventListener('mouseleave', () => {
+            circle.setAttribute('stroke-width', '3');
+          });
+        }
+        
+        this.svg.appendChild(circle);
+      }
+      
+      /**
+       * ユーザーを描画
+       * NPCより大きく表示して重なっても見えるようにする
+       */
+      _renderUser(graph, userId) {
+        const node = graph.nodes.get(userId);
+        if (!node) return;
+        
+        const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        circle.setAttribute('cx', node.x);
+        circle.setAttribute('cy', node.y);
+        circle.setAttribute('r', '18');  // NPCより大きく（NPCは15）
+        circle.setAttribute('class', 'node-user');
+        
+        this.svg.appendChild(circle);
+      }
+    }
+    
+    // ========================================
+    // セクション8: アプリケーション初期化
+    // ========================================
+    
+    // グローバル変数
+    let currentGraph = null;
+    let currentGameController = null;
+    const renderer = new Renderer(document.getElementById('gameArea'));
+    const validator = new GraphValidator();
+    
+    /**
+     * ゲーム情報を画面に表示
+     */
+    function updateGameInfo() {
+      if (!currentGameController) {
+        document.getElementById('gameState').textContent = '未開始';
+        document.getElementById('gameTitle').textContent = 'Spider Chase';
+        return;
+      }
+      
+      const info = currentGameController.getGameInfo();
+      
+      // ゲームタイトルをモードに応じて更新
+      if (info.mode === 'CHASE') {
+        document.getElementById('gameTitle').textContent = '⭐ 逃げろ！';
+      } else {
+        document.getElementById('gameTitle').textContent = '🔴 捕まえろ！';
+      }
+      
+      // ゲーム状態情報を更新
+      document.getElementById('turnCount').textContent = info.turn;
+      document.getElementById('userPos').textContent = info.userPos;
+      document.getElementById('npcPos').textContent = info.npcPos;
+      document.getElementById('goalPos').textContent = info.goalPos;
+      document.getElementById('userNpcDist').textContent = info.userNpcDist === Infinity ? '∞' : info.userNpcDist;
+      document.getElementById('userGoalDist').textContent = info.userGoalDist === Infinity ? '∞' : info.userGoalDist;
+      
+      // ゲーム状態を表示
+      let stateText = '';
+      if (info.state === 'PLAYING') {
+        stateText = 'プレイ中';
+      } else if (info.state === 'USER_WIN') {
+        stateText = '🎉 勝利！';
+      } else if (info.state === 'USER_LOSE') {
+        stateText = '😢 敗北...';
+      }
+      document.getElementById('gameState').textContent = stateText;
+      
+      // ゲーム状態の色分け
+      const stateElement = document.getElementById('gameState');
+      if (info.state === 'USER_WIN') {
+        stateElement.className = 'value success';
+      } else if (info.state === 'USER_LOSE') {
+        stateElement.className = 'value error';
+      } else {
+        stateElement.className = 'value';
+      }
+    }
+    
+    /**
+     * ノードクリック時の処理
+     */
+    function handleNodeClick(nodeId) {
+      if (!currentGameController) return;
+      if (currentGameController.state !== 'PLAYING') return;
+      
+      // ユーザーを移動
+      const result = currentGameController.moveUser(nodeId);
+      
+      if (result.success) {
+        // 画面を更新
+        renderer.renderGameState(currentGameController, handleNodeClick);
+        updateGameInfo();
+        
+        // メッセージ表示
+        if (result.message && (currentGameController.state === 'USER_WIN' || currentGameController.state === 'USER_LOSE')) {
+          setTimeout(() => {
+            alert(result.message);
+          }, 100);
+        }
+      }
+    }
+    
+    /**
+     * マップ生成ボタンのイベントハンドラ
+     */
+    document.getElementById('generateBtn').addEventListener('click', () => {
+      try {
+        // 設定値を取得
+        const R = parseInt(document.getElementById('ringCount').value);
+        const S = parseInt(document.getElementById('spokeCount').value);
+        const diagonalProb = parseFloat(document.getElementById('diagonalProb').value);
+        const minNodes = parseInt(document.getElementById('minNodes').value);
+        const seed = parseInt(document.getElementById('seed').value);
+        
+        // 入力値の検証
+        if (R < 2 || R > 10) {
+          alert('リング数は2～10の範囲で指定してください');
+          return;
+        }
+        
+        if (S < 4 || S > 16) {
+          alert('放射方向数は4～16の範囲で指定してください');
+          return;
+        }
+        
+        // ボタンを無効化
+        const btn = document.getElementById('generateBtn');
+        btn.disabled = true;
+        btn.textContent = '生成中...';
+        
+        // 少し遅延させて描画をスムーズに
+        setTimeout(() => {
+          try {
+            // グラフ生成
+            const generator = new GraphGenerator(seed);
+            const graph = generator.generate(R, S, diagonalProb, 0.2);
+            
+            // 検証
+            const validation = validator.validate(graph, minNodes);
+            const stats = validator.getStats(graph);
+            
+            // 情報表示
+            document.getElementById('nodeCount').textContent = stats.nodeCount;
+            document.getElementById('edgeCount').textContent = stats.edgeCount;
+            document.getElementById('avgDegree').textContent = stats.avgDegree;
+            
+            const resultElement = document.getElementById('validationResult');
+            const errorElement = document.getElementById('errorMessages');
+            
+            if (!validation.valid) {
+              resultElement.textContent = '不合格';
+              resultElement.className = 'value error';
+              errorElement.innerHTML = '<p class="error">エラー:</p>' +
+                validation.errors.map(e => `<p class="error">- ${e}</p>`).join('');
+              currentGraph = null;
+              currentGameController = null;
+              renderer.renderGraph(graph);
+              
+              btn.disabled = false;
+              btn.textContent = '新しいゲーム開始';
+              return;
+            }
+            
+            // 検証成功
+            resultElement.textContent = '合格';
+            resultElement.className = 'value success';
+            errorElement.innerHTML = '';
+            currentGraph = graph;
+            
+            // 配置生成
+            const mode = document.getElementById('playerMode').value;
+            const placementGen = new PlacementGenerator(seed + 1);
+            const placement = placementGen.generatePlacement(graph, mode);
+            
+            // NPCコントローラー作成
+            const aiLevel = document.getElementById('aiLevel').value;
+            const npcController = new NPCController(aiLevel);
+            
+            // ゲームコントローラー作成
+            currentGameController = new GameController(graph, placement, mode, npcController);
+            
+            // ゲーム画面を描画
+            renderer.renderGameState(currentGameController, handleNodeClick);
+            updateGameInfo();
+            
+            // リスタートボタンを有効化
+            document.getElementById('restartBtn').disabled = false;
+            
+            // ボタンを有効化
+            btn.disabled = false;
+            btn.textContent = '新しいゲーム開始';
+            
+          } catch (innerError) {
+            console.error('ゲーム開始エラー:', innerError);
+            alert('ゲーム開始中にエラーが発生しました: ' + innerError.message);
+            btn.disabled = false;
+            btn.textContent = '新しいゲーム開始';
+          }
+        }, 100);
+        
+      } catch (error) {
+        console.error('エラー:', error);
+        alert('マップ生成中にエラーが発生しました: ' + error.message);
+        
+        // ボタンを有効化
+        const btn = document.getElementById('generateBtn');
+        btn.disabled = false;
+        btn.textContent = 'マップ生成';
+      }
+    });
+    
+    /**
+     * リスタートボタンのイベントハンドラ
+     */
+    document.getElementById('restartBtn').addEventListener('click', () => {
+      if (!currentGameController) return;
+      
+      // ゲームをリスタート
+      currentGameController.restart();
+      
+      // 画面を更新
+      renderer.renderGameState(currentGameController, handleNodeClick);
+      updateGameInfo();
+    });
+    
+    /**
+     * 斜め接続確率のスライダー値を表示
+     */
+    document.getElementById('diagonalProb').addEventListener('input', (e) => {
+      document.getElementById('diagonalProbValue').textContent = e.target.value;
+    });
+    
+    // ページ読み込み時に初期マップを生成
+    document.getElementById('generateBtn').click();
+  </script>
+</body>
+</html>
