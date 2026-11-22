@@ -227,6 +227,43 @@
   <div id="app">
     <!-- 設定エリア -->
     <div id="settings">
+      <h3>ゲーム説明</h3>
+      <div style="font-size: 0.9em; color: #666; line-height: 1.6;">
+        <p><strong>🔵 青丸：あなた</strong></p>
+        <p><strong>🔴 赤丸：NPC（敵）</strong></p>
+        <p><strong>⭐ 黄色の星：ゴール</strong></p>
+        <p><strong>🟢 緑丸：移動可能な場所</strong></p>
+        
+        <p style="margin-top: 10px;"><strong>逃走者モード：</strong><br>
+        NPCから逃げてゴールを目指せ！<br>
+        NPCに捕まったら負け。</p>
+        
+        <p style="margin-top: 10px;"><strong>追跡者モード：</strong><br>
+        逃げるNPCを追いかけて捕まえろ！<br>
+        NPCがゴールに到達したら負け。</p>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 15px;">
+        <button id="generateBtn" style="width: 100%; padding: 10px; font-size: 0.9em;">固定設定で新規ゲーム</button>
+        <button id="generateRandomBtn" style="width: 100%; padding: 10px; font-size: 0.9em;">ランダム設定で新規ゲーム</button>
+      </div>      
+      <h3>ゲーム設定</h3>
+      
+      <label>
+        プレイヤーの役割:
+        <select id="playerMode">
+          <option value="CHASE">逃走者（ゴールを目指す）</option>
+          <option value="ESCAPE">追跡者（NPCを捕まえる）</option>
+        </select>
+      </label>
+      
+      <label>
+        NPCのAIレベル:
+        <select id="aiLevel">
+          <option value="SIMPLE">シンプル（距離優先）</option>
+          <option value="MODERATE">中級（回避考慮）</option>
+        </select>
+      </label>
+      
       <h3>マップ設定</h3>
       
       <label>
@@ -255,41 +292,7 @@
         <input type="number" id="seed" value="12345" min="1">
       </label>
       
-      <h3>ゲーム設定</h3>
-      
-      <label>
-        プレイヤーの役割:
-        <select id="playerMode">
-          <option value="CHASE">逃走者（ゴールを目指す）</option>
-          <option value="ESCAPE">追跡者（NPCを捕まえる）</option>
-        </select>
-      </label>
-      
-      <label>
-        NPCのAIレベル:
-        <select id="aiLevel">
-          <option value="SIMPLE">シンプル（距離優先）</option>
-          <option value="MODERATE">中級（回避考慮）</option>
-        </select>
-      </label>
-      
-      <button id="generateBtn">新しいゲーム開始</button>
-      
-      <h3>ゲーム説明</h3>
-      <div style="font-size: 0.9em; color: #666; line-height: 1.6;">
-        <p><strong>🔵 青丸：あなた</strong></p>
-        <p><strong>🔴 赤丸：NPC（敵）</strong></p>
-        <p><strong>⭐ 黄色の星：ゴール</strong></p>
-        <p><strong>🟢 緑丸：移動可能な場所</strong></p>
-        
-        <p style="margin-top: 10px;"><strong>逃走者モード：</strong><br>
-        NPCから逃げてゴールを目指せ！<br>
-        NPCに捕まったら負け。</p>
-        
-        <p style="margin-top: 10px;"><strong>追跡者モード：</strong><br>
-        逃げるNPCを追いかけて捕まえろ！<br>
-        NPCがゴールに到達したら負け。</p>
-      </div>
+
     </div>
     
     <!-- ゲームエリア -->
@@ -450,18 +453,34 @@
       
       /**
        * 基本的な接続を追加
-       * - 同一リング内の隣接ノード同士を接続
+       * - 同一リング内の隣接ノード同士を接続（閉ループを1～2か所で解消）
        * - 隣接リング間を放射方向に接続
        */
       _addBasicConnections(nodes, edges, R, S) {
         for (let r = 0; r < R; r++) {
+          // 各リングで削除するエッジの位置を決定（1～2か所）
+          const numGaps = S >= 6 ? 2 : 1; // ノード数が多ければ2か所、少なければ1か所
+          const gapPositions = [];
+          
+          // ランダムに隙間の位置を選択（重複しないように）
+          for (let i = 0; i < numGaps; i++) {
+            let gapPos;
+            do {
+              gapPos = this.random.nextInt(0, S);
+            } while (gapPositions.includes(gapPos));
+            gapPositions.push(gapPos);
+          }
+          
           for (let s = 0; s < S; s++) {
             const currentId = `r${r}_s${s}`;
             
             // 1. 同一リング内の接続（円周方向）
-            const nextS = (s + 1) % S; // 次の放射方向（周回する）
-            const neighborInRing = `r${r}_s${nextS}`;
-            this._addEdge(nodes, edges, currentId, neighborInRing);
+            // 隙間の位置ではエッジを追加しない
+            if (!gapPositions.includes(s)) {
+              const nextS = (s + 1) % S; // 次の放射方向（周回する）
+              const neighborInRing = `r${r}_s${nextS}`;
+              this._addEdge(nodes, edges, currentId, neighborInRing);
+            }
             
             // 2. 外側リングへの接続（放射方向）
             if (r < R - 1) {
@@ -767,17 +786,24 @@
           const userGoalDist = bfsDistance(graph, user, goal);
           const npcGoalDist = bfsDistance(graph, npc, goal);
           
-          // 基本条件：ユーザーとNPCは2以上、ユーザーとゴールは2以上
-          if (userNpcDist < 2 || userGoalDist < 2) {
+          // 基本条件：ユーザーとゴールは2以上
+          if (userGoalDist < 2) {
             attempts++;
             continue;
           }
           
           // モード別の追加条件
-          if (mode === "ESCAPE") {
-            // ユーザーが追跡者の場合：NPCとゴールの距離も2以上必要
-            // NPCがゴールの隣だと1ターンで負けてしまう
-            if (npcGoalDist < 3) {
+          if (mode === "CHASE") {
+            // ユーザーが逃走者の場合：ユーザーとNPCは2以上
+            if (userNpcDist < 2) {
+              attempts++;
+              continue;
+            }
+          } else if (mode === "ESCAPE") {
+            // ユーザーが追跡者の場合
+            // 1. ユーザーとNPCの距離は3以上必要（修正指示書より）
+            // 2. NPCとゴールの距離も3以上必要（NPCが即座にゴール到達を防ぐ）
+            if (userNpcDist < 3 || npcGoalDist < 3) {
               attempts++;
               continue;
             }
@@ -787,14 +813,12 @@
           return { user, npc, goal };
         }
         
-        // 条件を満たす配置が見つからなかった場合は緩和
-        console.warn('厳しい条件を満たせないため、緩和した配置を使用します');
-        const shuffled = this.random.shuffle(nodeIds);
-        return {
-          user: shuffled[0],
-          npc: shuffled[1],
-          goal: shuffled[2]
-        };
+        // 条件を満たす配置が見つからなかった場合はエラー
+        throw new Error(
+          `${maxAttempts}回の試行で条件を満たす配置が見つかりませんでした。\n` +
+          `マップ設定を変更してください。\n` +
+          `（リング数や放射方向数を増やすと成功しやすくなります）`
+        );
       }
     }
     
@@ -809,6 +833,8 @@
       constructor(aiLevel) {
         this.aiLevel = aiLevel; // "SIMPLE" or "MODERATE"
         this.lastDecision = null; // デバッグ用
+        this.moveHistory = []; // 移動履歴（過去数ターン分）
+        this.maxHistory = 3; // 保持する履歴数
       }
       
       /**
@@ -821,13 +847,30 @@
        * @returns {string} 移動先ノードID
        */
       chooseMove(graph, npcPos, userPos, goalPos, mode) {
+        let nextMove;
+        
         if (mode === "CHASE") {
           // NPCが追跡者：ユーザーを追いかける
-          return this._chaseMove(graph, npcPos, userPos);
+          nextMove = this._chaseMove(graph, npcPos, userPos);
         } else {
           // NPCが逃走者：ゴールを目指して逃げる
-          return this._escapeMove(graph, npcPos, userPos, goalPos);
+          nextMove = this._escapeMove(graph, npcPos, userPos, goalPos);
         }
+        
+        // 履歴に追加
+        this.moveHistory.push(nextMove);
+        if (this.moveHistory.length > this.maxHistory) {
+          this.moveHistory.shift(); // 古い履歴を削除
+        }
+        
+        return nextMove;
+      }
+      
+      /**
+       * 履歴をリセット（ゲーム再開時などに使用）
+       */
+      resetHistory() {
+        this.moveHistory = [];
       }
       
       /**
@@ -872,13 +915,19 @@
       
       /**
        * 逃走AI：ゴールに近づきつつユーザーから遠ざかる移動を選択
+       * 往復を抑制するロジックを含む
        */
       _escapeMove(graph, npcPos, userPos, goalPos) {
         const neighbors = graph.nodes.get(npcPos).neighbors;
+        const currentDistToGoal = bfsDistance(graph, npcPos, goalPos);
         
         let bestMove = null;
         let bestScore = -Infinity;
         const candidates = []; // 同じスコアの候補を保持
+        const scoreMap = new Map(); // 各候補のスコアを保持
+        
+        // 直前の位置（1ターン前）
+        const prevPos = this.moveHistory.length > 0 ? this.moveHistory[this.moveHistory.length - 1] : null;
         
         for (const neighborId of neighbors) {
           // ゴールまでの距離（小さいほど良い）
@@ -890,19 +939,42 @@
           // AIレベルに応じたスコア計算
           let score;
           if (this.aiLevel === "SIMPLE") {
-            // シンプル：ゴールへの距離のみ考慮
-            score = -distToGoal;
+            // シンプル：ゴールへの距離を優先
+            score = -distToGoal * 10;
+            
+            // ユーザーからの距離も少し考慮
+            if (distToUser <= 2) {
+              score += distToUser * 5;
+            }
           } else {
             // 中級：ゴールへの距離とユーザーからの距離の両方を考慮
             // ユーザーが近い場合は逃げることを優先
             if (distToUser <= 2) {
               // ユーザーが近ければ逃げることを最優先
-              score = distToUser * 3 - distToGoal;
+              score = distToUser * 15 - distToGoal * 5;
             } else {
               // ユーザーが遠ければゴールを優先
-              score = distToUser - distToGoal * 2;
+              score = distToUser * 2 - distToGoal * 10;
             }
           }
+          
+          // ゴールまでの距離が変わらない移動にペナルティ
+          if (distToGoal === currentDistToGoal) {
+            score -= 3;
+          }
+          
+          // 直前の位置への移動にペナルティ（他に選択肢があれば避ける）
+          if (neighborId === prevPos) {
+            score -= 5;
+          }
+          
+          // 過去の履歴に頻繁に登場する位置にもペナルティ
+          const historyCount = this.moveHistory.filter(pos => pos === neighborId).length;
+          if (historyCount > 0) {
+            score -= historyCount * 2;
+          }
+          
+          scoreMap.set(neighborId, score);
           
           if (score > bestScore) {
             bestScore = score;
@@ -914,9 +986,15 @@
           }
         }
         
-        // 同じ評価値の候補が複数ある場合はランダムに選択
+        // 同じ評価値の候補が複数ある場合
         if (candidates.length > 1) {
-          bestMove = candidates[Math.floor(Math.random() * candidates.length)];
+          // 直前の位置以外を優先
+          const nonPrevCandidates = candidates.filter(c => c !== prevPos);
+          if (nonPrevCandidates.length > 0) {
+            bestMove = nonPrevCandidates[Math.floor(Math.random() * nonPrevCandidates.length)];
+          } else {
+            bestMove = candidates[Math.floor(Math.random() * candidates.length)];
+          }
         }
         
         const distToGoal = bfsDistance(graph, bestMove, goalPos);
@@ -1138,6 +1216,10 @@
         this.turn = 0;
         this.state = "PLAYING";
         this.history = [];
+        // NPCの移動履歴もリセット
+        if (this.npcController) {
+          this.npcController.resetHistory();
+        }
       }
       
       /**
@@ -1593,6 +1675,31 @@
       // 画面を更新
       renderer.renderGameState(currentGameController, handleNodeClick);
       updateGameInfo();
+    });
+    
+    /**
+     * ランダム設定ボタンのイベントハンドラ
+     */
+    document.getElementById('generateRandomBtn').addEventListener('click', () => {
+      // ランダムな設定値を生成
+      const randomRings = 2 + Math.floor(Math.random() * 5); // 2～6
+      const randomSpokes = 4 + Math.floor(Math.random() * 9); // 4～12
+      const randomDiagonal = Math.floor(Math.random() * 6) / 10; // 0.0～0.5
+      const randomSeed = Math.floor(Math.random() * 100000);
+      const randomMode = Math.random() < 0.5 ? 'CHASE' : 'ESCAPE';
+      const randomAI = Math.random() < 0.5 ? 'SIMPLE' : 'MODERATE';
+      
+      // UIに反映
+      document.getElementById('ringCount').value = randomRings;
+      document.getElementById('spokeCount').value = randomSpokes;
+      document.getElementById('diagonalProb').value = randomDiagonal;
+      document.getElementById('diagonalProbValue').textContent = randomDiagonal;
+      document.getElementById('seed').value = randomSeed;
+      document.getElementById('playerMode').value = randomMode;
+      document.getElementById('aiLevel').value = randomAI;
+      
+      // 新しいゲームを開始
+      document.getElementById('generateBtn').click();
     });
     
     /**
